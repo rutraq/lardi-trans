@@ -1,5 +1,6 @@
 from PyQt5 import Qt, QtGui, QtCore
 from PyQt5 import QtWidgets
+from PyQt5.QtWidgets import QCheckBox
 import login_form
 import main_form
 import time
@@ -8,6 +9,7 @@ import requests
 from easygui import msgbox
 
 sig = ''
+url = 'http://api.lardi-trans.com/api/?method='
 
 
 class LoginForm(QtWidgets.QMainWindow, login_form.Ui_Login):
@@ -23,8 +25,7 @@ class LoginForm(QtWidgets.QMainWindow, login_form.Ui_Login):
         login = self.lineEdit.text()
         password = self.lineEdit_2.text()
         try:
-            response = requests.get(
-                'http://api.lardi-trans.com/api/?method=auth&login=' + login + '&password=' + password)
+            response = requests.get(url + 'auth&login=' + login + '&password=' + password)
             root = cElementTree.fromstring(response.content)
             i = 0
             for child in root.iter():
@@ -47,6 +48,15 @@ class MainForm(QtWidgets.QMainWindow, main_form.Ui_Dialog):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
+        self.load()
+
+    def load(self):
+        applications = dict()
+        response = requests.get(url + 'my.gruz.list&sig=' + sig)
+        root = cElementTree.fromstring(response.content)
+        for child in root.iter():
+            if (child.tag == 'city_from') or (child.tag == 'city_to'):
+                print(child.text)
 
 
 if __name__ == '__main__':
