@@ -7,12 +7,45 @@ import time
 from xml.etree import cElementTree
 import requests
 from easygui import msgbox
+from PyQt5.QtCore import QThread, pyqtSignal
 
 sig = ''
 url = 'http://api.lardi-trans.com/api/?method='
 applications = []
 id = []
 check_boxes = []
+start = False
+id_for_update = []
+time_update = 0
+
+
+class UpdateApplications(QThread):
+    def __init__(self, k):
+        super().__init__()
+        self.k = k
+
+    def run(self):
+        while True:
+            while True:
+                for id in id_for_update:
+                    requests.post(url + "my.gruz.refresh&sig=" + sig + "&id=" + id)
+                time.sleep(time_update)
+
+
+class TimeUpdate(QThread):
+    progress = pyqtSignal(str)
+
+    def __init__(self, k):
+        super().__init__()
+        self.k = k
+
+    def run(self):
+        time = str(time_update) + ":00"
+        # while time != "0:00":
+        #     minutes = time[-2:-1]
+        #     print(minutes)
+        minutes = int(time[-2:])
+        print(len(minutes))
 
 
 class LoginForm(QtWidgets.QMainWindow, login_form.Ui_Login):
@@ -55,6 +88,8 @@ class MainForm(QtWidgets.QMainWindow, main_form.Ui_Dialog):
         self.pushButton.pressed.connect(self.update)
         self.pushButton_2.pressed.connect(self.update_on_time)
         self.checkBox.clicked.connect(self.choose_all)
+        self.label.hide()
+        self.label_2.hide()
 
     def load(self):
         global applications, id, check_boxes
@@ -91,7 +126,7 @@ class MainForm(QtWidgets.QMainWindow, main_form.Ui_Dialog):
             check_boxes.append(check)
 
     def update(self):
-        id_for_update = []
+        global id_for_update
         check_times = 0
         for check in check_boxes:
             if check.isChecked():
@@ -104,9 +139,10 @@ class MainForm(QtWidgets.QMainWindow, main_form.Ui_Dialog):
                 requests.post(url + "my.gruz.refresh&sig=" + sig + "&id=" + id)
             for check in check_boxes:
                 check.setChecked(False)
+            self.checkBox.setChecked(False)
 
     def update_on_time(self):
-        id_for_update = []
+        global id_for_update, start, time_update
         check_times = 0
         time_update = int(self.spinBox.value()) * 60
         for check in check_boxes:
@@ -114,14 +150,24 @@ class MainForm(QtWidgets.QMainWindow, main_form.Ui_Dialog):
                 check_times += 1
                 id_for_update.append(check.objectName())
         if check_times == 0:
-            msgbox(msg="Выберите хотя бы одну заявку", title="ERROR")
+            if not start:
+                msgbox(msg="Выберите хотя бы одну заявку", title="ERROR")
+            else:
+                self.pushButton_2.setText("Обновлять по времени")
+                start = False
+                self.thread1.terminate()
         else:
             for check in check_boxes:
                 check.setChecked(False)
-            while True:
-                for id in id_for_update:
-                    requests.post(url + "my.gruz.refresh&sig=" + sig + "&id=" + id)
-                time.sleep(time_update)
+            self.pushButton_2.setText("Остановить")
+            start = True
+            self.thread1 = UpdateApplications(1)
+            self.thread1.start()
+            self.checkBox.setChecked(False)
+            self.label.show()
+            self.label_2.show()
+            self.thread2 = TimeUpdate(1)
+            self.thread2.start()
 
     def choose_all(self):
         if self.checkBox.isChecked():
