@@ -53,7 +53,7 @@ class Ui_Dialog(object):
         self.checkBox.setFont(font)
         self.checkBox.setObjectName("checkBox")
         self.label = QtWidgets.QLabel(Dialog)
-        self.label.setEnabled(False)
+        self.label.setEnabled(True)
         self.label.setGeometry(QtCore.QRect(460, 30, 311, 31))
         font = QtGui.QFont()
         font.setFamily("Times New Roman")

@@ -8,6 +8,8 @@ from xml.etree import cElementTree
 import requests
 from easygui import msgbox
 from PyQt5.QtCore import QThread, pyqtSignal
+import psycopg2
+import winreg
 
 sig = ''
 url = 'http://api.lardi-trans.com/api/?method='
@@ -17,6 +19,7 @@ check_boxes = []
 start = False
 id_for_update = []
 time_update = 0
+conn = cur = None
 
 
 class UpdateApplications(QThread):
@@ -40,12 +43,24 @@ class TimeUpdate(QThread):
         self.k = k
 
     def run(self):
-        time = str(time_update) + ":00"
-        # while time != "0:00":
-        #     minutes = time[-2:-1]
-        #     print(minutes)
-        minutes = int(time[-2:])
-        print(len(minutes))
+        choosen_time = str(time_update) + ":00"
+        seconds = int(choosen_time[-2:])
+        minutes = int(time_update) // 60 - 1
+        if seconds == 0:
+            seconds = 60
+        while True:
+            while seconds != 0:
+                seconds -= 1
+                if seconds < 10:
+                    seconds_str = '0' + str(seconds)
+                else:
+                    seconds_str = str(seconds)
+                self.progress.emit(str(minutes) + ":" + seconds_str)
+                time.sleep(1)
+            minutes -= 1
+            if minutes == -1:
+                minutes = int(time_update) // 60 - 1
+            seconds = 60
 
 
 class LoginForm(QtWidgets.QMainWindow, login_form.Ui_Login):
@@ -55,6 +70,9 @@ class LoginForm(QtWidgets.QMainWindow, login_form.Ui_Login):
         self.lineEdit_2.returnPressed.connect(self.login)
         self.pushButton.pressed.connect(self.login)
         self.lineEdit.returnPressed.connect(self.login)
+        self.lineEdit_3.returnPressed.connect(self.license)
+        self.pushButton_2.clicked.connect(self.license)
+        self.check_license()
 
     def login(self):
         global sig
@@ -78,6 +96,43 @@ class LoginForm(QtWidgets.QMainWindow, login_form.Ui_Login):
                 self.lineEdit_2.setText('')
         except requests.exceptions.ConnectionError:
             msgbox(msg='Отсутствует интернет соединение', title='Login', ok_button='Ok')
+
+    def check_license(self):
+        global conn, cur
+        try:
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "SOFTWARE\Lardi", 0, winreg.KEY_ALL_ACCESS)
+            winreg.QueryValue(key, "activate")
+            self.label_3.hide()
+            self.label_4.hide()
+            self.pushButton_2.hide()
+            self.lineEdit_3.hide()
+        except FileNotFoundError:
+            try:
+                conn = psycopg2.connect(
+                    "dbname='twknsdce' user='twknsdce' host='pellefant.db.elephantsql.com' password='8J4NHVvE9kdI5vpbjTAD48i6Jc0d4QEp'")
+                cur = conn.cursor()
+            except psycopg2.OperationalError:
+                msgbox(msg="Отсутствует интернет соединение", title="Login", ok_button="Exit")
+                exit(0)
+
+    def license(self):
+        global conn, cur
+        license_key = self.lineEdit_3.text()
+        cur.execute("SELECT * FROM License_keys WHERE key = '" + license_key + "' ")
+        row = cur.fetchone()
+        if (row is not None) and (row[1] == 0):
+            cur.execute("UPDATE License_keys SET use_of_key=1 WHERE key = '" + license_key + "'")
+            conn.commit()
+            self.label_3.hide()
+            self.label_4.hide()
+            self.pushButton_2.hide()
+            self.lineEdit_3.hide()
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "SOFTWARE", 0, winreg.KEY_ALL_ACCESS)
+            winreg.CreateKey(key, "Lardi")
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "SOFTWARE\Lardi", 0, winreg.KEY_ALL_ACCESS)
+            winreg.SetValue(key, "activate", 1, "Activated")
+        else:
+            msgbox(msg="Лицензионный ключ неверный", title="License", ok_button="OK")
 
 
 class MainForm(QtWidgets.QMainWindow, main_form.Ui_Dialog):
@@ -167,6 +222,7 @@ class MainForm(QtWidgets.QMainWindow, main_form.Ui_Dialog):
             self.label.show()
             self.label_2.show()
             self.thread2 = TimeUpdate(1)
+            self.thread2.progress.connect(self.time_on_form)
             self.thread2.start()
 
     def choose_all(self):
@@ -176,6 +232,9 @@ class MainForm(QtWidgets.QMainWindow, main_form.Ui_Dialog):
         else:
             for check in check_boxes:
                 check.setChecked(False)
+
+    def time_on_form(self, value):
+        self.label_2.setText(value)
 
 
 if __name__ == '__main__':
