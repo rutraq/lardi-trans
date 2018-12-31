@@ -209,8 +209,11 @@ class MainForm(QtWidgets.QMainWindow, main_form.Ui_Dialog):
                 msgbox(msg="Выберите хотя бы одну заявку", title="ERROR")
             else:
                 self.pushButton_2.setText("Обновлять по времени")
-                start = False
                 self.thread1.terminate()
+                self.thread2.terminate()
+                self.label.hide()
+                self.label_2.hide()
+                start = False
         else:
             for check in check_boxes:
                 check.setChecked(False)
