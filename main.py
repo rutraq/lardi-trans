@@ -77,26 +77,8 @@ class CheckApplications(QThread):
             response = requests.get(url + 'my.gruz.list&sig=' + sig)
             root = cElementTree.fromstring(response.content)
             city = []
-            for child in root.iter():
-                if (child.tag == 'city_from') or (child.tag == 'city_to'):
-                    city.append(child.text)
-                if child.tag == 'id':
-                    id.append(child.text)
-            count = 0
-            el = 0
-            for cit in city:
-                if count == 0:
-                    applications.append({"city_from": cit})
-                    count += 1
-                else:
-                    applications[el]['city_to'] = cit
-                    count = 0
-                    el += 1
-            print(city)
-            el = 0
-            for num in id:
-                applications[el]['id'] = num
-                el += 1
+            for child in root.iter('id'):
+                if child.text not in applications:
             self.progress.emit(applications)
 
 
