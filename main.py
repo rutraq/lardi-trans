@@ -32,6 +32,7 @@ class UpdateApplications(QThread):
             while True:
                 for id in id_for_update:
                     requests.post(url + "my.gruz.refresh&sig=" + sig + "&id=" + id)
+                    requests.post(url + "my.trans.refresh&sig=" + sig + "&id=" + id)
                 time.sleep(time_update)
 
 
@@ -101,11 +102,22 @@ class LoginForm(QtWidgets.QMainWindow, login_form.Ui_Login):
         global conn, cur
         try:
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "SOFTWARE\Lardi", 0, winreg.KEY_ALL_ACCESS)
-            winreg.QueryValue(key, "activate")
-            self.label_3.hide()
-            self.label_4.hide()
-            self.pushButton_2.hide()
-            self.lineEdit_3.hide()
+            key_from_winreg = winreg.QueryValue(key, "activate")
+            conn = psycopg2.connect("dbname='twknsdce' user='twknsdce' host='pellefant.db.elephantsql.com' password='8J4NHVvE9kdI5vpbjTAD48i6Jc0d4QEp'")
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM License_keys WHERE key = '" + key_from_winreg + "' ")
+            row = cur.fetchone()
+            if (row is not None) and (row[1] == 1):
+                self.label_3.hide()
+                self.label_4.hide()
+                self.pushButton_2.hide()
+                self.lineEdit_3.hide()
+            else:
+                try:
+                    cur = conn.cursor()
+                except psycopg2.OperationalError:
+                    msgbox(msg="Отсутствует интернет соединение", title="Login", ok_button="Exit")
+                    exit(0)
         except FileNotFoundError:
             try:
                 conn = psycopg2.connect(
@@ -130,7 +142,7 @@ class LoginForm(QtWidgets.QMainWindow, login_form.Ui_Login):
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "SOFTWARE", 0, winreg.KEY_ALL_ACCESS)
             winreg.CreateKey(key, "Lardi")
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "SOFTWARE\Lardi", 0, winreg.KEY_ALL_ACCESS)
-            winreg.SetValue(key, "activate", 1, "Activated")
+            winreg.SetValue(key, "activate", 1, license_key)
         else:
             msgbox(msg="Лицензионный ключ неверный", title="License", ok_button="OK")
 
@@ -192,6 +204,7 @@ class MainForm(QtWidgets.QMainWindow, main_form.Ui_Dialog):
         else:
             for id in id_for_update:
                 requests.post(url + "my.gruz.refresh&sig=" + sig + "&id=" + id)
+                requests.post(url + "my.trans.refresh&sig=" + sig + "&id=" + id)
             for check in check_boxes:
                 check.setChecked(False)
             self.checkBox.setChecked(False)
