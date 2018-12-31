@@ -74,12 +74,32 @@ class CheckApplications(QThread):
     def run(self):
         global applications, id
         while True:
+            applications.clear()
+            id.clear()
             response = requests.get(url + 'my.gruz.list&sig=' + sig)
             root = cElementTree.fromstring(response.content)
             city = []
-            for child in root.iter('id'):
-                if child.text not in applications:
+            for child in root.iter():
+                if (child.tag == 'city_from') or (child.tag == 'city_to'):
+                    city.append(child.text)
+                if child.tag == 'id':
+                    id.append(child.text)
+            count = 0
+            el = 0
+            for cit in city:
+                if count == 0:
+                    applications.append({"city_from": cit})
+                    count += 1
+                else:
+                    applications[el]['city_to'] = cit
+                    count = 0
+                    el += 1
+            el = 0
+            for num in id:
+                applications[el]['id'] = num
+                el += 1
             self.progress.emit(applications)
+            time.sleep(300)
 
 
 class LoginForm(QtWidgets.QMainWindow, login_form.Ui_Login):
@@ -209,20 +229,24 @@ class MainForm(QtWidgets.QMainWindow, main_form.Ui_Dialog):
             check.move(10, y)
             y += 30
             check_boxes.append(check)
-        # self.thread3 = CheckApplications(1)
-        # self.thread3.progress.connect(self.load_applications)
-        # self.thread3.start()
+        self.thread3 = CheckApplications(1)
+        self.thread3.progress.connect(self.load_applications)
+        self.thread3.start()
 
     def load_applications(self, value):
         global check_boxes
         y = 35
-        print(value)
+        for check in check_boxes:
+            check.hide()
+            check.destroy()
+        check_boxes.clear()
         for ap in value:
             check = QCheckBox(ap['city_from'] + ' - ' + ap['city_to'], self)
             check.setObjectName(ap['id'])
             check.setFont(QtGui.QFont("Times", 12, QtGui.QFont.Bold))
             check.resize(450, 30)
             check.move(10, y)
+            check.show()
             y += 30
             check_boxes.append(check)
 
